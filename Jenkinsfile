@@ -67,7 +67,7 @@ pipeline {
                     cd images
                     qemu-system-arm -machine virt -nographic \
                         -drive file=openbmc.qcow2,format=qcow2 \
-                        -netdev user,id=net0,hostfwd=tcp::8080-:80,hostfwd=tcp::2222-:22 \
+                        -netdev user,id=net0,hostfwd=tcp:127.0.0.1:8080-:80,hostfwd=tcp:127.0.0.1:2222-:22
                         -device virtio-net,netdev=net0 &
                     
                     echo $! > ../qemu.pid
