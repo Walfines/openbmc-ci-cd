@@ -20,12 +20,21 @@ pipeline {
                     if [ -f "/home/ubuntu/Desktop/romulus/obmc-phosphor-image-romulus-20250902012112.static.mtd" ]; then
                         echo "Real BMC image found!"
                         ls -lh "/home/ubuntu/Desktop/romulus/obmc-phosphor-image-romulus-20250902012112.static.mtd"
-                        echo "Image size: $(du -h "/home/ubuntu/Desktop/romulus/obmc-phosphor-image-romulus-20250902012112.static.mtd" | cut -f1)"
                     else
                         echo "BMC image not found"
-                        ls -la /home/ubuntu/Desktop/romulus/ || echo "Directory not found"
                         exit 1
                     fi
+                '''
+            }
+        }
+        
+        stage('Install Dependencies') {
+            steps {
+                echo "Installing dependencies..."
+                sh '''
+                    apt-get update
+                    apt-get install -y sshpass curl python3 python3-pip python3-requests
+                    pip3 install requests urllib3
                 '''
             }
         }
@@ -76,34 +85,34 @@ pipeline {
                     
                     echo "Testing BMC System Information"
                     sshpass -p '0penBmc' ssh -o StrictHostKeyChecking=no -p 2222 root@localhost '
-                        echo "BMC Version"
+                        echo "=== BMC Version ==="
                         cat /etc/os-release 2>/dev/null || echo "No os-release file"
                         echo ""
-                        echo "System Uptime"
+                        echo "=== System Uptime ==="
                         uptime
                         echo ""
-                        echo "Memory Usage"
+                        echo "=== Memory Usage ==="
                         free -m || cat /proc/meminfo | head -5
                         echo ""
-                        echo "Storage"
+                        echo "=== Storage ==="
                         df -h 2>/dev/null || echo "df not available"
                         echo ""
-                        echo "Running Processes"
+                        echo "=== Running Processes ==="
                         ps aux | head -10
                     ' > test-results/bmc-system-info.log
                     
                     echo "Testing BMC Services"
                     sshpass -p '0penBmc' ssh -o StrictHostKeyChecking=no -p 2222 root@localhost '
-                        echo "BMC Services Status"
+                        echo "=== BMC Services Status ==="
                         systemctl list-units --state=running 2>/dev/null | grep -E "(phosphor|openbmc|redfish|web|ssh)" | head -20
                         echo ""
-                        echo "Network Interfaces"
+                        echo "=== Network Interfaces ==="
                         ip addr show 2>/dev/null || ifconfig 2>/dev/null || echo "Network tools not available"
                     ' > test-results/bmc-services.log
                     
                     echo "Checking BMC Logs"
                     sshpass -p '0penBmc' ssh -o StrictHostKeyChecking=no -p 2222 root@localhost '
-                        echo "Recent Journal Logs"
+                        echo "=== Recent Journal Logs ==="
                         journalctl --no-pager -n 30 2>/dev/null || dmesg | tail -30 2>/dev/null || echo "Logs not available"
                     ' > test-results/bmc-logs.log
                     
@@ -210,23 +219,23 @@ ENDFILE
                 echo "Running functional tests..."
                 sh '''
                     sshpass -p '0penBmc' ssh -o StrictHostKeyChecking=no -p 2222 root@localhost '
-                        echo "BMC Specific Commands"
+                        echo "=== BMC Specific Commands ==="
                         echo "Available BMC commands:"
                         which busctl 2>/dev/null && echo "busctl: available" || echo "busctl: not available"
                         which obmcutil 2>/dev/null && echo "obmcutil: available" || echo "obmcutil: not available"
                         
                         if which busctl >/dev/null 2>&1; then
-                            echo "Busctl Services"
+                            echo "=== Busctl Services ==="
                             busctl list --no-pager | grep -i openbmc | head -10
                         fi
                         
-                        echo "Firmware Information"
+                        echo "=== Firmware Information ==="
                         cat /etc/version 2>/dev/null || echo "No version file"
                         
-                        echo "Hostname"
+                        echo "=== Hostname ==="
                         hostname
                         
-                        echo "Functional tests completed"
+                        echo "=== Functional tests completed ==="
                     ' > test-results/bmc-functional-tests.log
                     
                     echo "Functional tests completed"
@@ -235,42 +244,6 @@ ENDFILE
             post {
                 always {
                     archiveArtifacts 'test-results/bmc-*.log'
-                }
-            }
-        }
-        
-        stage('Generate Test Report') {
-            steps {
-                echo "Generating test report..."
-                sh '''
-                    cat > test-results/test-summary.md << "ENDFILE"
-# BMC Test Report
-## Test Results
-- BMC Image: /home/ubuntu/Desktop/romulus/obmc-phosphor-image-romulus-20250902012112.static.mtd
-- SSH Port: 2222
-- HTTPS Port: 2443
-- Test Time: $(date)
-
-## System Information
-$(cat test-results/bmc-system-info.log | head -20)
-
-## Services Status
-$(cat test-results/bmc-services.log | head -15)
-
-## Test Artifacts
-- System Info: bmc-system-info.log
-- Services: bmc-services.log
-- Logs: bmc-logs.log
-- Functional Tests: bmc-functional-tests.log
-- REST API: rest-api-detailed.json
-ENDFILE
-
-                    echo "Test report generated"
-                '''
-            }
-            post {
-                always {
-                    archiveArtifacts 'test-results/test-summary.md'
                 }
             }
         }
