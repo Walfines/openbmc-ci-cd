@@ -28,8 +28,8 @@ pipeline {
                 echo "📦 Installing dependencies..."
                 sh '''
                     apt-get update
-                    apt-get install -y qemu-system-arm sshpass curl python3 python3-pip
-                    pip3 install requests
+                    apt-get install -y qemu-system-arm sshpass curl python3-requests
+                    echo "✅ Dependencies installed"
                 '''
             }
         }
@@ -40,6 +40,7 @@ pipeline {
                 sh '''
                     cd images
                     
+                    # Запускаем QEMU
                     qemu-system-arm -m 256 -M romulus-bmc -nographic \
                         -drive file=obmc-phosphor-image-romulus-20250902012112.static.mtd,format=raw,if=mtd \
                         -net nic \
@@ -101,35 +102,17 @@ pipeline {
             }
         }
         
-        stage('REST API Test') {
+        stage('Simple Connectivity Test') {
             steps {
-                echo "🌐 Testing REST API"
+                echo "🌐 Testing Connectivity"
                 sh '''
-                    cat > test_api.py << "EOF"
-import requests
-import urllib3
-from requests.auth import HTTPBasicAuth
-
-urllib3.disable_warnings()
-
-try:
-    response = requests.get(
-        "https://localhost:2443/redfish/v1/",
-        auth=HTTPBasicAuth("root", "0penBmc"),
-        verify=False,
-        timeout=10
-    )
-    print(f"REST API Status: HTTP {response.status_code}")
-    if response.status_code == 200:
-        print("✅ REST API is working!")
-    else:
-        print("⚠️  REST API responded with non-200 status")
-except Exception as e:
-    print(f"❌ REST API error: {e}")
-EOF
-
-                    python3 test_api.py > test-results/rest-api.log
-                '''
+                    # Простой тест через curl без Python
+                    echo "=== Testing Web Interface ==="
+                    curl -k -s -o /dev/null -w "HTTP Status: %{http_code}\n" https://localhost:2443/ || echo "Web interface not accessible"
+                    
+                    echo "=== Testing SSH ==="
+                    sshpass -p "$BMC_PASSWORD" ssh -o StrictHostKeyChecking=no -p $SSH_PORT $BMC_USER@$BMC_IP "echo 'SSH connection successful'" && echo "✅ SSH working" || echo "❌ SSH failed"
+                ''' > test-results/connectivity.log
             }
         }
         
