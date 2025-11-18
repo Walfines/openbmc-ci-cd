@@ -72,7 +72,11 @@ pipeline {
                         echo "=== System Info ==="
                         cat /etc/os-release 2>/dev/null
                         echo "=== Services ==="
-                        systemctl list-units --state=running 2>/dev/null | head -10
+                        systemctl list-units --state=running 2>/dev/null | head -n 10
+                        echo "=== Network ==="
+                        ip addr 2>/dev/null || ifconfig 2>/dev/null
+                        echo "=== BMC Version ==="
+                        cat /etc/issue 2>/dev/null
                     ' > test-results/auto-tests.log
                 '''
             }
@@ -97,7 +101,7 @@ for endpoint in endpoints:
     except Exception as e:
         print(f"{endpoint}: ERROR {e}")
 EOF
-                    python3 webui_test.py > test-results/webui-tests.log
+                    python3 webui_test.py > test-results/webui-tests.log 2>&1
                 '''
             }
         }
@@ -128,7 +132,7 @@ for t in threads:
     t.join()
 print("Stress test completed")
 EOF
-                    python3 stress_test.py > test-results/stress-tests.log
+                    python3 stress_test.py > test-results/stress-tests.log 2>&1
                 '''
             }
         }
