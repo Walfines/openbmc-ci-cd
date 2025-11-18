@@ -40,7 +40,6 @@ pipeline {
                 sh '''
                     cd images
                     
-                    # Запускаем QEMU
                     qemu-system-arm -m 256 -M romulus-bmc -nographic \
                         -drive file=obmc-phosphor-image-romulus-20250902012112.static.mtd,format=raw,if=mtd \
                         -net nic \
@@ -84,16 +83,16 @@ pipeline {
                     
                     echo "=== Testing BMC System ==="
                     sshpass -p "$BMC_PASSWORD" ssh -o StrictHostKeyChecking=no -p $SSH_PORT $BMC_USER@$BMC_IP '
-                        echo "🔧 BMC Version:"
+                        echo "BMC Version:"
                         cat /etc/os-release 2>/dev/null
                         echo ""
-                        echo "⏱️  Uptime:"
+                        echo "Uptime:"
                         uptime
                         echo ""
-                        echo "🖥️  Hostname:"
+                        echo "Hostname:"
                         hostname
                         echo ""
-                        echo "💾 Memory:"
+                        echo "Memory:"
                         free -m 2>/dev/null || echo "Memory info not available"
                     ' > test-results/bmc-system.log
                     
@@ -106,7 +105,6 @@ pipeline {
             steps {
                 echo "🌐 Testing Connectivity"
                 sh '''
-                    # Простой тест через curl без Python
                     echo "=== Testing Web Interface ==="
                     curl -k -s -o /dev/null -w "HTTP Status: %{http_code}\n" https://localhost:2443/ || echo "Web interface not accessible"
                     
