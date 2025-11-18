@@ -16,6 +16,7 @@ pipeline {
                     mkdir -p images test-results
                     cp /var/jenkins_home/romulus/*.mtd images/
                     echo "BMC image ready!"
+                    ls -la images/
                 '''
             }
         }
@@ -34,11 +35,16 @@ pipeline {
             steps {
                 sh '''
                     cd images
+                    QEMU_FILE=$(ls *.mtd | head -1)
+                    echo "Using BMC image: $QEMU_FILE"
+                    
                     qemu-system-arm -m 256 -M romulus-bmc -nographic \\
-                        -drive file=*.mtd,format=raw,if=mtd \\
+                        -drive file="$QEMU_FILE",format=raw,if=mtd \\
                         -net nic \\
                         -net user,hostfwd=tcp::2222-:22,hostfwd=tcp::2443-:443 &
+                    
                     echo $! > ../qemu.pid
+                    echo "QEMU started with PID: $(cat ../qemu.pid)"
                     sleep 120
                 '''
             }
@@ -102,7 +108,7 @@ EOF
                     cat > stress_test.py << "EOF"
 import requests
 import threading
-import time
+import urllib3
 urllib3.disable_warnings()
 
 def worker():
